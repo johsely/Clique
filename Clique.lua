@@ -54,6 +54,9 @@ function Clique:OnEnable()
         return
     end
     
+    -- Create the hook tables early, so LoadModules can use them safely
+    self._OnClick = {}
+    
     -- Register for ADDON_LOADED so we can load plugins for LOD addons
     self:RegisterEvent("ADDON_LOADED", "LoadModules")
     
@@ -65,8 +68,17 @@ function Clique:OnEnable()
 	self:EnableTooltips()
     self:RegUtilFuncs()
     
-    -- Create the hook tables
-    self._OnClick = {}
+    -- User option to disable Blizzard unit frame click-casting (default enabled).
+    -- We must mark the module as disabled *before* LoadModules() runs, otherwise
+    -- the Blizzard frame OnClick hooks get installed and stay active.
+    self.db.char._config = self.db.char._config or {}
+    self.db.char._config.disableBlizzUF = self.db.char._config.disableBlizzUF or false
+    if self.db.char._config.disableBlizzUF then
+        local blizzuf = self:GetModule("blizzuf", true)
+        if blizzuf then
+            blizzuf.disabled = true
+        end
+    end
     
     -- Load any valid modules
     self:LoadModules()
@@ -81,6 +93,8 @@ function Clique:OnEnable()
 end
 
 function Clique:LoadModules()
+    -- Ensure hook tables exist, even if this handler is called very early
+    self._OnClick = self._OnClick or {}
     for name,module in self:IterateModules() do
         if not self:IsModuleActive(name) and not module.disabled then
             -- Try to enable the module
@@ -114,6 +128,9 @@ function Clique:CheckProfile()
     local profile = self.db.char
     profile[L"DEFAULT_FRIENDLY"] = profile[L"DEFAULT_FRIENDLY"] or {}
     profile[L"DEFAULT_HOSTILE"] = profile[L"DEFAULT_HOSTILE"] or {}
+    
+    -- Remove an obsolete saved variable that used to be stored at top level
+    profile.disableBlizzUF = nil
 end
 
 function Clique:BuildActionTable()
@@ -123,36 +140,38 @@ function Clique:BuildActionTable()
     self.Actions = actions
     
     for k,v in pairs(self.db.char) do
-        actions[k] = {}
-        
-        for i,entry in ipairs(v) do
-            local a = bit.band(entry.modifiers, 1)
-            local c = bit.band(entry.modifiers, 2)
-            local s = bit.band(entry.modifiers, 4)
+        if type(v) == "table" then
+            actions[k] = {}
             
-            -- Skip any non-bound entries
-            if entry.button ~= L"BINDING_NOT_DEFINED" then 
-                local key = string.format("%s%d", entry.button, entry.modifiers)
-                local action = entry.action
-                if not action and not entry.custom then
-                    local buff = self.spellbook[entry.name]
-                    if buff then buff = tonumber(buff) end
-                    if self:IsBuff(entry.name) and not entry.rank then
-                        action = string.format("Clique:BestRank(\"%s\", Clique.unit)", entry.name)
-                    elseif entry.rank then
-                        action = string.format("Clique:CastSpell(\""..L["SPELL_FORMAT"].."\")", entry.name, entry.rank)
-                    else
-                        action = string.format("Clique:CastSpell(\"%s\")", entry.name)
+            for i,entry in ipairs(v) do
+                local a = bit.band(entry.modifiers, 1)
+                local c = bit.band(entry.modifiers, 2)
+                local s = bit.band(entry.modifiers, 4)
+                
+                -- Skip any non-bound entries
+                if entry.button ~= L"BINDING_NOT_DEFINED" then 
+                    local key = string.format("%s%d", entry.button, entry.modifiers)
+                    local action = entry.action
+                    if not action and not entry.custom then
+                        local buff = self.spellbook[entry.name]
+                        if buff then buff = tonumber(buff) end
+                        if self:IsBuff(entry.name) and not entry.rank then
+                            action = string.format("Clique:BestRank(\"%s\", Clique.unit)", entry.name)
+                        elseif entry.rank then
+                            action = string.format("Clique:CastSpell(\""..L["SPELL_FORMAT"].."\")", entry.name, entry.rank)
+                        else
+                            action = string.format("Clique:CastSpell(\"%s\")", entry.name)
+                        end
                     end
-                end
-                
-                --self:Print(action)
-                
-                local func,errString = loadstring(action)
-                if func then 
-                    actions[k][key] = func
-                else
-                    DEFAULT_CHAT_FRAME:AddMessage(string.format(L"ERROR_SCRIPT", errString))
+                    
+                    --self:Print(action)
+                    
+                    local func,errString = loadstring(action)
+                    if func then
+                        actions[k][key] = func
+                    else
+                        DEFAULT_CHAT_FRAME:AddMessage(string.format(L"ERROR_SCRIPT", errString))
+                    end
                 end
             end
         end
@@ -341,4 +360,17 @@ function Clique:CastSpell(spell, unit)
         self:LevelDebug(3, "Restoring with TargetLastTarget")
 		TargetLastTarget()
 	end
+end
+
+-- Slash command handler
+SLASH_CLIQUE1 = "/clique"
+SlashCmdList["CLIQUE"] = function(msg)
+    if string.lower(msg or "") == "blizz" then
+        local cfg = Clique.db.char._config or {}
+        cfg.disableBlizzUF = not cfg.disableBlizzUF
+        DEFAULT_CHAT_FRAME:AddMessage("Clique: Blizzard unit frame click-casting " .. (cfg.disableBlizzUF and "disabled" or "enabled") .. ". Type /reload to apply.")
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("Clique commands:")
+        DEFAULT_CHAT_FRAME:AddMessage("  /clique blizz - toggle Blizzard frame click-casting (/reload required)")
+    end
 end
