@@ -183,9 +183,7 @@ end
 function Clique:OnClick(button, unit)
     unit = unit or this.unit 
     button = button or arg1
-    local a,c,s = IsAltKeyDown() or 0, IsControlKeyDown() or 0, IsShiftKeyDown() or 0 
-
-    print("Clique:OnClick("..tostring(button)..", "..tostring(unit)..")")
+    local a,c,s = IsAltKeyDown() or 0, IsControlKeyDown() or 0, IsShiftKeyDown() or 0     
 
     local targettarget = nil
 
@@ -298,7 +296,7 @@ function Clique:CastSpell(spell, unit)
     -- allows casting from non-click events such as mouse wheel.
     local _,guid = UnitExists(unit)
     if guid then
-        self:LevelDebug(2, "lololo: Casting "..tostring(spell).." on "..tostring(unit).." with GUID "..tostring(guid))        
+        self:LevelDebug(2, "Casting "..tostring(spell).." on "..tostring(unit).." with GUID "..tostring(guid))        
         CastSpellByName(spell, guid)
         return
     end
