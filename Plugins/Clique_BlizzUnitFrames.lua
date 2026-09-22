@@ -36,15 +36,30 @@ function Plugin:OnEnable()
         
 		button.unit = unit
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp", "Button4Up", "Button5Up")
+        button:EnableMouseWheel(true)
         self:HookScript(button, "OnClick")
+        self:HookScript(button, "OnMouseWheel")
     end
 end
 
 function Plugin:OnClick()
     local button = arg1
-    local unit = this.healthbar.unit
+    local unit = this.healthbar and this.healthbar.unit or this.unit
 
     if not Clique:OnClick(button, unit) then
-        self.hooks[this].OnClick.orig(this)
-   end
+        if self.hooks[this] and self.hooks[this].OnClick and self.hooks[this].OnClick.orig then
+            self.hooks[this].OnClick.orig(this)
+        end
+    end
+end
+
+function Plugin:OnMouseWheel()
+    local unit = this.healthbar and this.healthbar.unit or this.unit
+    local button = (arg1 or 0) > 0 and "MouseWheelUp" or "MouseWheelDown"
+
+    if not Clique:OnClick(button, unit) then
+        if self.hooks[this] and self.hooks[this].OnMouseWheel and self.hooks[this].OnMouseWheel.orig then
+            self.hooks[this].OnMouseWheel.orig(this)
+        end
+    end
 end

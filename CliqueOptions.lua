@@ -32,7 +32,10 @@ end
 
 function Clique:SpellButton_OnClick()
     if not CliqueFrame:IsVisible() then
-        self.hooks[this].OnClick.orig(this)
+        if self.hooks[this] and self.hooks[this].OnClick and self.hooks[this].OnClick.orig then
+            self.hooks[this].OnClick.orig(this)
+        end
+        return
     elseif CliqueEditFrame:IsVisible() then
         -- We're editing a custom spell at the moment
         return
@@ -61,8 +64,8 @@ function Clique:SpellButton_OnClick()
         t.name = name
 
    		if self:CheckBinding(arg1, t.modifiers) then
-			return
-		end
+ 			return
+ 		end
 
         local _,_,numrank = string.find(rank, L["RANK_PATTERN"])
         t.rank = numrank
@@ -71,6 +74,25 @@ function Clique:SpellButton_OnClick()
         Clique:ListScrollUpdate()
         Clique:BuildActionTable()
     end
+end
+
+function Clique:SpellButton_OnMouseWheel()
+    -- Only intercept wheel events while the Clique UI is open
+    if not CliqueFrame:IsVisible() then
+        if self.hooks[this] and self.hooks[this].OnMouseWheel and self.hooks[this].OnMouseWheel.orig then
+            self.hooks[this].OnMouseWheel.orig(this)
+        end
+        return
+    end
+
+    -- Map the numeric wheel delta to a virtual button name
+    if arg1 > 0 then
+        arg1 = "MouseWheelUp"
+    else
+        arg1 = "MouseWheelDown"
+    end
+
+    Clique:SpellButton_OnClick()
 end
 
 StaticPopupDialogs["CLIQUE_AUTO_SELF_CAST"] = {

@@ -88,7 +88,9 @@ function Clique:OnEnable()
     for i=1,12 do
         local button = getglobal("SpellButton"..i)
         button:RegisterForClicks("LeftButtonUp","RightButtonUp", "MiddleButtonUp", "Button4Up", "Button5Up");
+        button:EnableMouseWheel(true)
         self:HookScript(button, "OnClick", "SpellButton_OnClick")
+        self:HookScript(button, "OnMouseWheel", "SpellButton_OnMouseWheel")
     end
 end
 
@@ -183,6 +185,8 @@ function Clique:OnClick(button, unit)
     button = button or arg1
     local a,c,s = IsAltKeyDown() or 0, IsControlKeyDown() or 0, IsShiftKeyDown() or 0 
 
+    print("Clique:OnClick("..tostring(button)..", "..tostring(unit)..")")
+
     local targettarget = nil
 
     if not unit then
@@ -259,7 +263,7 @@ function Clique:OnClick(button, unit)
 		entry = Clique.db.char[default][key]
 	end
 
-    if func then
+    if func then        
         func()
 		
 		-- In case spell failed to apply
@@ -289,13 +293,13 @@ function Clique:CastSpell(spell, unit)
 	local targettarget
 	unit = unit or Clique.unit
 
-    if has_superwow then
-        local _,guid = UnitExists(unit)
-        if not guid then return end
-
-        self:LevelDebug(2, "Clique:CastSpell("..tostring(spell)..", "..tostring(unit) .. ")")
-
-        CastSpellByName(spell,guid)
+    -- Prefer GUID-based casting when the client supports it (SuperWoW,
+    -- ClassicAPI.dll, Puppeteer, etc.).  This avoids target swapping and
+    -- allows casting from non-click events such as mouse wheel.
+    local _,guid = UnitExists(unit)
+    if guid then
+        self:LevelDebug(2, "lololo: Casting "..tostring(spell).." on "..tostring(unit).." with GUID "..tostring(guid))        
+        CastSpellByName(spell, guid)
         return
     end
 
